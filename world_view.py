@@ -1,48 +1,41 @@
-import pandas as pd
 import requests
-import us
-
 import json
-from functools import cache
 import geonamescache
 import numpy as np
 import pandas as pd
 import plotly.express as px
 from dash import Dash, dcc, html, Output, Input
 
+# Provided data
 data = requests.get('https://www.levels.fyi/js/salaryData.json').json()
 job_data = pd.DataFrame(data)
-hdi_index = pd.read_csv("HDI-world.csv")
-secondary_ed = pd.read_csv("secondary-ed.csv")
 
+# Preloading the maps + separate for states
 gapminder = px.data.gapminder().query("year==2007")
 gapminder.rename(columns={"country": "Country"}, inplace=True)
-loaded = json.load(open("geojson-counties-fips.json", "r"))  # , dtype={"fips": str}
+loaded = json.load(open("geojson-counties-fips.json", "r"))
 
-religiousness = pd.read_csv("csvData.csv")
-religiousness.rename(columns={"country": "Country", "percentage": "percentage_religious"}, inplace=True)
-
-education_percentage = pd.read_csv("../hack/secondary-ed.csv")
-
+# Caching states
 gcache = geonamescache.GeonamesCache()
-
 states = gcache.get_us_states_by_names()
 reindex = {"code": [c['code'] for c in states.values()], "country_name": [c['name'] for c in states.values()]}
+
+# Building a frame
 state_frame = pd.DataFrame(reindex)
 
-usa_poverty = pd.read_csv("america_poverty.csv")
-usa_religion = pd.read_csv("america_religion.csv")
 
-def get_frame(search=None, usa_only=False, category="Count"):
-    # srcdf = pd.read_csv("out3.csv")
+def get_frame(search=None, usa_only=False):
     job_data[['city', 'state', 'country']] = job_data['location'].str.split(', ', n=2, expand=True)
     job_data['country'] = job_data['country'].fillna('United States')
 
     location_count = {}
+    ratio = 0
+    women_count = {}
+    men_count = {}
 
     for row in job_data.iterrows():
-        # location = str(row.).split(", ")
         city = row[1]["city"]
+        state = row[1]["state"]
         country = row[1]["country"]
         content = row[1]["title"]  # Product Manager or Software Engineer
         gender = row[1]["gender"]
@@ -58,31 +51,47 @@ def get_frame(search=None, usa_only=False, category="Count"):
                 continue
 
         if usa_only:
-            res: str = search_city(city)
-            if res is None:
-                continue
-            elif res.isdecimal():
-                res = states.get(city)
-                if res is None:
-                    continue
-                res = res["code"]
+            res = state
         else:
             res = country
         location_count.setdefault(res, [0])
+        men_count.setdefault(res, [0])
+        women_count.setdefault(res, [0])
         location_count[res][0] += 1
 
-    reindex = {"Country": list(location_count.keys()), "Count": [c[0] for c in location_count.values()]}
+        if gender == "Female":
+            women_count[res][0] += 1
+        elif gender == "Male":
+            men_count[res][0] += 1
+
+    reindex = {"Country": list(location_count.keys()),
+               "Women Count": [wc[0] for wc in women_count.values()],
+               "Men Count": [mc[0] for mc in men_count.values()],
+               "Count": [c[0] for c in location_count.values()],
+               "wm-ratio": []
+               }
+
+    # Calculate the ratio per country and add it to the reindex dictionary
+    for i, country in enumerate(reindex['Country']):
+        women_count = reindex['Women Count'][i]
+        men_count = reindex['Men Count'][i]
+        if women_count == 0 and men_count == 0:
+            ratio = 0
+        elif women_count != 0 and men_count == 0:
+            ratio = 1
+        else:
+            ratio = women_count / men_count  # Calculate the ratio, handle division by zero
+        reindex['wm-ratio'].append(ratio)
+
     d = pd.DataFrame(reindex)
+
     if usa_only:
         d.rename(columns={"Country": "code"}, inplace=True)
         ret = d.merge(state_frame, on="code")
-        # ret = ret.merge(usa_poverty, on="country_name")
-        # ret = ret.merge(usa_religion, on="country_name")
     else:
         ret = gapminder.merge(d, how='left', on='Country')
-        # .merge(hdi_index, how='left', on='Country') \
-        # .merge(religiousness, how='left', on='Country')
     return ret
+
 
 app = Dash(__name__)
 
@@ -105,7 +114,7 @@ app.layout = html.Div([
             {"label": "USA only", "value": True},
             {"label": "World", "value": False},
         ],
-        value=False,
+        value="World",
         inline=True
     ),
     dcc.Graph(id="graph"),
