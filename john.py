@@ -30,7 +30,6 @@ reindex = {"code": [c['code'] for c in states.values()], "country_name": [c['nam
 state_frame = pd.DataFrame(reindex)
 
 usa_poverty = pd.read_csv("america_poverty.csv")
-
 usa_religion = pd.read_csv("america_religion.csv")
 
 @cache
@@ -74,23 +73,15 @@ def get_frame(search=None, usa_only=False):
         # content = row[1]["Tweet"]
         content = row[1]["title"] # Product Manager or Software Engineer
 
-        found = False
-        if search.lower() == content.lower():
-            found = True
-        else:
+        if search is not None:
+            search_words = search.split()
             found = False
-
-        # if search is not None:
-        #     # search_words = search.split()
-        #     # found = False
-        #     # for word in search_words:
-        #     #     if word.lower() in content.lower():
-        #     #         found = True
-        #     #         break
-        #     # if not found:
-        #     #     continue
-        #     if search.lower() == content.lower()
-
+            for word in search_words:
+                if word.lower() in content.lower():
+                    found = True
+                    break
+            if not found:
+                continue
 
         if usa_only:
             res: str = search_city(city)
@@ -129,10 +120,8 @@ app.layout = html.Div([
     dcc.RadioItems(
         id='category',
         options=[
-            {"label": "Workers count", "value": "Count"},
-            {"label": "Religiousness", "value": "percentage_religious"},
-            {"label": "HDI", "value": "hdi_index"},
-            {"label": "Poverty rate (usa-only only)", "value": "poverty_rate"},
+            {"label": "Employees count", "value": "Count"},
+            {"label": "Women Ratio", "value": "women_ratio"},
         ],
         value="Count",
         inline=True
@@ -168,7 +157,7 @@ def display(search, category, usa_only):
                         locationmode="USA-states" if usa_only else None,
                         color_continuous_scale="Plasma",
                         scope="usa" if usa_only else "world",
-                        labels={'Count': 'worker count'}
+                        labels={'Count': 'employees count'}
                         )
 
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
