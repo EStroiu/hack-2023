@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import us
 
 import json
 from functools import cache
@@ -32,34 +33,7 @@ state_frame = pd.DataFrame(reindex)
 usa_poverty = pd.read_csv("america_poverty.csv")
 usa_religion = pd.read_csv("america_religion.csv")
 
-@cache
-def code_from_state(state):
-    return gcache.get_us_states_by_names()[state]["code"]
-
-
-@cache
-def search_city(city):
-    res = gcache.search_cities(query=city)
-    if res:
-        for option in res:
-            if not option["admin1code"].isdecimal() and option["countrycode"] == "US":
-                return option["admin1code"]
-
-        for option in res:
-            if option["countrycode"] == "US":
-                return option["admin1code"]
-
-        for option in res:
-            if not option["admin1code"].isdecimal():
-                return option["admin1code"]
-
-        print("Tried to find but failed to find city " + city)
-        return None
-    else:
-        return None
-
-
-def get_frame(search=None, usa_only=False):
+def get_frame(search=None, usa_only=False, category="Count"):
     # srcdf = pd.read_csv("out3.csv")
     job_data[['city', 'state', 'country']] = job_data['location'].str.split(', ', n=2, expand=True)
     job_data['country'] = job_data['country'].fillna('United States')
@@ -70,8 +44,8 @@ def get_frame(search=None, usa_only=False):
         # location = str(row.).split(", ")
         city = row[1]["city"]
         country = row[1]["country"]
-        # content = row[1]["Tweet"]
-        content = row[1]["title"] # Product Manager or Software Engineer
+        content = row[1]["title"]  # Product Manager or Software Engineer
+        gender = row[1]["gender"]
 
         if search is not None:
             search_words = search.split()
@@ -102,14 +76,13 @@ def get_frame(search=None, usa_only=False):
     if usa_only:
         d.rename(columns={"Country": "code"}, inplace=True)
         ret = d.merge(state_frame, on="code")
-        ret = ret.merge(usa_poverty, on="country_name")
-        ret = ret.merge(usa_religion, on="country_name")
+        # ret = ret.merge(usa_poverty, on="country_name")
+        # ret = ret.merge(usa_religion, on="country_name")
     else:
-        ret = gapminder.merge(d, how='left', on='Country') \
-            .merge(hdi_index, how='left', on='Country') \
-            .merge(religiousness, how='left', on='Country')
+        ret = gapminder.merge(d, how='left', on='Country')
+        # .merge(hdi_index, how='left', on='Country') \
+        # .merge(religiousness, how='left', on='Country')
     return ret
-
 
 app = Dash(__name__)
 
@@ -120,8 +93,8 @@ app.layout = html.Div([
     dcc.RadioItems(
         id='category',
         options=[
-            {"label": "Employees count", "value": "Count"},
-            {"label": "Women Ratio", "value": "women_ratio"},
+            {"label": "Logarithmic employee count", "value": "Count"},
+            {"label": "Ratio of women to men", "value": "wm-ratio"},
         ],
         value="Count",
         inline=True
@@ -148,7 +121,7 @@ app.layout = html.Div([
 def display(search, category, usa_only):
     df = get_frame(search=search if search != "" else None, usa_only=usa_only)
 
-    if category == "Count" and not usa_only:
+    if category == "Count":
         # Apply log scale to count
         df["Count"] = np.log(df["Count"])
 
@@ -157,7 +130,7 @@ def display(search, category, usa_only):
                         locationmode="USA-states" if usa_only else None,
                         color_continuous_scale="Plasma",
                         scope="usa" if usa_only else "world",
-                        labels={'Count': 'employees count'}
+                        labels={'Logarithmic count': 'employee count'}
                         )
 
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
