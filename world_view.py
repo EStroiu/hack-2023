@@ -10,6 +10,9 @@ from dash import Dash, dcc, html, Output, Input
 data = requests.get('https://www.levels.fyi/js/salaryData.json').json()
 job_data = pd.DataFrame(data)
 
+job_data[['city', 'state', 'country']] = job_data['location'].str.split(', ', n=2, expand=True)
+job_data['country'] = job_data['country'].fillna('United States')
+
 # Preloading the maps + separate for states
 gapminder = px.data.gapminder().query("year==2007")
 gapminder.rename(columns={"country": "Country"}, inplace=True)
