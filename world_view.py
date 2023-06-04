@@ -25,30 +25,32 @@ state_frame = pd.DataFrame(reindex)
 
 
 def get_frame(search=None, usa_only=False):
-    job_data[['city', 'state', 'country']] = job_data['location'].str.split(', ', n=2, expand=True)
-    job_data['country'] = job_data['country'].fillna('United States')
+
+    final_df = job_data
+    if search:
+        final_df = job_data.loc[job_data['title'].str.lower() == search.lower()]
 
     location_count = {}
     ratio = 0
     women_count = {}
     men_count = {}
 
-    for row in job_data.iterrows():
+    for row in final_df.iterrows():
         city = row[1]["city"]
         state = row[1]["state"]
         country = row[1]["country"]
         content = row[1]["title"]  # Product Manager or Software Engineer
         gender = row[1]["gender"]
 
-        if search is not None:
-            search_words = search.split()
-            found = False
-            for word in search_words:
-                if word.lower() in content.lower():
-                    found = True
-                    break
-            if not found:
-                continue
+        # if search is not None:
+        #     search_words = search.split()
+        #     found = False
+        #     for word in search_words:
+        #         if word.lower() in content.lower():
+        #             found = True
+        #             break
+        #     if not found:
+        #         continue
 
         if usa_only:
             res = state
