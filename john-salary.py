@@ -21,7 +21,6 @@ for i, row in job_data.iterrows():
 
 job_data = job_data.drop(job_data[job_data['totalyearlycompensation'] == 0].index)
 
-# scores_df = job_data
 
 def get_company_entries(search_company, df):
     result_df = df.loc[df['company'].str.lower() == search_company.lower()]
@@ -36,6 +35,8 @@ def get_position_entries(search_position, df):
 def get_scores():
     women_count = {}
     men_count = {}
+    women_total_compensation = {}
+    men_total_compensation = {}
 
     for row in job_data.iterrows():
         company = row[1]["company"]
@@ -45,6 +46,8 @@ def get_scores():
 
         men_count.setdefault(company, [0])
         women_count.setdefault(company, [0])
+        women_total_compensation.setdefault(company, [0])
+        men_total_compensation.setdefault(company, [0])
 
         if gender == "Female":
             women_count[company][0] += 1
@@ -56,13 +59,22 @@ def get_scores():
     reindex = {"company": list(women_count.keys()),
                "Women Count": [wc[0] for wc in women_count.values()],
                "Men Count": [mc[0] for mc in men_count.values()],
-               "wm-ratio": []
+               "Women total compensation": [wtc[0] for wtc in women_total_compensation.values()],
+               "Men total compensation": [mtc[0] for mtc in men_total_compensation.values()],
+               "Women avg compensation": [],
+               "Men avg compensation": [],
+               "wm-ratio": [],
+               "wm-comp-ratio": [],
+               "comp-score": []
                }
 
     # Calculate the ratio per country and add it to the reindex dictionary
     for i, company in enumerate(reindex['company']):
         women_count = reindex['Women Count'][i]
         men_count = reindex['Men Count'][i]
+        women_total = reindex['Women total compensation'][i]
+        men_total = reindex['Men total compensation'][i]
+
         if women_count == 0 and men_count == 0:
             ratio = 0
         elif women_count != 0 and men_count == 0:
@@ -230,10 +242,6 @@ def display(search_company, search_position, years):
     if years == "years_at_company":
         df = df.sort_values("yearsatcompany", ascending=True)
         fig = px.scatter(df, y="totalyearlycompensation", x="yearsatcompany", color="gender")
-
-    for scat in fig.data:
-        if scat.legendgroup == "Title: Senior Software Engineer":
-            scat.visible = "legendonly"
 
     return fig
 

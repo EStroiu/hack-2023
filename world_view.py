@@ -68,6 +68,7 @@ def get_frame(search=None, usa_only=False):
                "Women Count": [wc[0] for wc in women_count.values()],
                "Men Count": [mc[0] for mc in men_count.values()],
                "Count": [c[0] for c in location_count.values()],
+               "log-count": [],
                "wm-ratio": []
                }
 
@@ -82,6 +83,7 @@ def get_frame(search=None, usa_only=False):
         else:
             ratio = women_count / men_count  # Calculate the ratio, handle division by zero
         reindex['wm-ratio'].append(ratio)
+        reindex["log-count"].append(np.log(reindex['Count'])[i])
 
     d = pd.DataFrame(reindex)
     # d["log-count"] = np.log(d["Count"])
