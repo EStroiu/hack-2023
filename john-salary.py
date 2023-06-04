@@ -19,6 +19,7 @@ for i, row in job_data.iterrows():
     if str(row["gender"]) == "":
         job_data.at[i, 'gender'] = "Other"
 
+job_data = job_data.drop(job_data[job_data['totalyearlycompensation'] == 0].index)
 
 # scores_df = job_data
 
@@ -32,7 +33,7 @@ def get_position_entries(search_position, df):
     return result_df
 
 
-def get_sorted():
+def get_scores():
     women_count = {}
     men_count = {}
 
@@ -47,8 +48,10 @@ def get_sorted():
 
         if gender == "Female":
             women_count[company][0] += 1
+            women_total_compensation[company][0] += int(compensation)
         elif gender == "Male":
             men_count[company][0] += 1
+            men_total_compensation[company][0] += int(compensation)
 
     reindex = {"company": list(women_count.keys()),
                "Women Count": [wc[0] for wc in women_count.values()],
@@ -66,39 +69,78 @@ def get_sorted():
             ratio = 1
         else:
             ratio = women_count / men_count  # Calculate the ratio, handle division by zero
+
+        if women_count != 0:
+            women_avg = women_total / women_count
+            reindex['Women avg compensation'].append(women_avg)
+        else:
+            women_avg = 0
+            reindex['Women avg compensation'].append(0)
+        if men_count != 0:
+            men_avg = men_total / men_count
+            reindex['Men avg compensation'].append(men_avg)
+        else:
+            men_avg = 0
+            reindex['Men avg compensation'].append(0)
+
+        if men_avg != 0:
+            wm_comp_r = women_avg / men_avg
+            reindex['wm-comp-ratio'].append(wm_comp_r)
+        else:
+            # future TODO: maybe change the ratio, but who cares, there are always guys at companies
+            wm_comp_r = 1
+            reindex['wm-comp-ratio'].append(1)
+
+        reindex['comp-score'].append(ratio + wm_comp_r)
         reindex['wm-ratio'].append(ratio)
 
     d = pd.DataFrame(reindex)
     d = d.drop(d[d['Women Count'] + d['Men Count'] < 20].index)
+
     return d
-    # print(d)
 
     # maybe an idea for later
     # 0.6 (0.6 > 0.5) - meh (1 - 0.6 = 0.4)
     # 0.5 - ideal
     # 0.4 - meh
 
-def get_top_best():
-    d = get_sorted()
-    top_ten = d.sort_values(by=['wm-ratio'], ascending=False).head(10)
+
+def get_top_best(sort_by_comp):
+    d = get_scores()
+
+    if (sort_by_comp):
+        top_ten = d.sort_values(by=['comp-score'], ascending=False).head(20)
+    else:
+        top_ten = d.sort_values(by=['wm-ratio'], ascending=False).head(20)
     ret = []
 
     for row in top_ten.iterrows():
-        cstr = str(row[1]["company"]) + " | " + str(row[1]["wm-ratio"])
+        ratio = round(row[1]["wm-ratio"], 3)
+        score = round(row[1]['comp-score'], 3)
+        cstr = str(row[1]["company"]) + " | " + str(ratio) + " | " + str(score)
         ret.append(cstr)
 
     return ret
 
-def get_top_worst():
-    d = get_sorted()
-    top_ten = d.sort_values(by=['wm-ratio'], ascending=False).tail(10)
+
+def get_top_worst(sort_by_comp):
+    d = get_scores()
+
+    if (sort_by_comp):
+        top_ten = d.sort_values(by=['comp-score'], ascending=False).tail(20)
+    else:
+        top_ten = d.sort_values(by=['wm-ratio'], ascending=False).tail(20)
+
     ret = []
 
     for row in top_ten.iterrows():
-        cstr = str(row[1]["company"]) + " | " + str(row[1]["wm-ratio"])
+        ratio = round(row[1]["wm-ratio"], 3)
+        score = round(row[1]['comp-score'], 3)
+        cstr = str(row[1]["company"]) + " | " + str(ratio) + " | " + str(score)
         ret.append(cstr)
 
     return ret
+
 
 def get_frame(search_company=None, search_position=None, years="years_of_experience"):
     # get_top_best()
@@ -129,21 +171,39 @@ app.layout = html.Div([
 
     dcc.Graph(id="graph"),
 
-    html.H4("Top 10 worst companies"),
-    html.Div(
-        className="trend",
-        children=[
-            html.Ul(id='my-list', children=[html.Li(i) for i in get_top_best()])
-        ],
-    ),
-    html.H4("Top 10 best companies"),
-    html.Div(
-        className="trend",
-        children=[
-            html.Ul(id='my-list', children=[html.Li(i) for i in get_top_worst()])
-        ],
-    )
+    html.Div([
+        html.Div(
+            className="trend",
+            children=[
+                html.H4("Top 20 best companies by total company score:"),
+                html.Ul(id='my-list', children=[html.Li(i) for i in get_top_best(True)])
+            ],
+        ),
+        html.Div(
+            className="trend",
+            children=[
+                html.H4("Top 20 worst companies by total company score:"),
+                html.Ul(id='my-list', children=[html.Li(i) for i in get_top_worst(True)])
+            ],
+        )
+    ], style={'display': 'flex', 'justify-content': 'space-around'}),
 
+    html.Div([
+        html.Div(
+            className="trend",
+            children=[
+                html.H4("Top 20 best companies by w/m ratio:"),
+                html.Ul(id='my-list', children=[html.Li(i) for i in get_top_best(False)])
+            ]
+        ),
+        html.Div(
+            className="trend",
+            children=[
+                html.H4("Top 20 worst companies by w/m ratio:"),
+                html.Ul(id='my-list', children=[html.Li(i) for i in get_top_worst(False)])
+            ],
+        )
+    ], style={'display': 'flex', 'justify-content': 'space-around'}),
 ])
 
 
