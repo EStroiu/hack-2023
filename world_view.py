@@ -84,6 +84,7 @@ def get_frame(search=None, usa_only=False):
         reindex['wm-ratio'].append(ratio)
 
     d = pd.DataFrame(reindex)
+    # d["log-count"] = np.log(d["Count"])
 
     if usa_only:
         d.rename(columns={"Country": "code"}, inplace=True)
@@ -102,10 +103,11 @@ app.layout = html.Div([
     dcc.RadioItems(
         id='category',
         options=[
-            {"label": "Logarithmic employee count", "value": "Count"},
+            {"label": "Logarithmic employee count", "value": "log-count"},
+            {"label": "Overall employee count", "value": "Count"},
             {"label": "Ratio of women to men", "value": "wm-ratio"},
         ],
-        value="Count",
+        value="wm-ratio",
         inline=True
     ),
     dcc.RadioItems(
@@ -114,7 +116,7 @@ app.layout = html.Div([
             {"label": "USA only", "value": True},
             {"label": "World", "value": False},
         ],
-        value="World",
+        value=False,
         inline=True
     ),
     dcc.Graph(id="graph"),
@@ -130,9 +132,9 @@ app.layout = html.Div([
 def display(search, category, usa_only):
     df = get_frame(search=search if search != "" else None, usa_only=usa_only)
 
-    if category == "Count":
-        # Apply log scale to count
-        df["Count"] = np.log(df["Count"])
+    # if category = log:
+    #     # Apply log scale to count
+    #     df["Count"] = np.log(df["Count"])
 
     fig = px.choropleth(df, locations='iso_alpha' if not usa_only else 'code',
                         color=category,
